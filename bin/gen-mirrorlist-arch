@@ -1,0 +1,3 @@
+#!/bin/bash
+
+reflector --country "United Kingdom",France --verbose --latest 50 --sort rate --save mirrorlist-arch

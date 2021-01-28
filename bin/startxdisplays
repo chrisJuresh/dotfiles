@@ -1,0 +1,3 @@
+#!/bin/bash
+
+xrandr --output DisplayPort-2 --left-of DisplayPort-1 --rotate left --set TearFree on --output DisplayPort-1 --mode 2560x1440 --rate 165.08
