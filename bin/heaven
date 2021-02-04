@@ -1,5 +1,0 @@
-#!/bin/bash
-
-{
-feh --bg-tile ${1} && wal -i ${1} -n && xdotool key Alt_L+F5 && pywal-discord -t chris;
-}
