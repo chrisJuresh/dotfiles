@@ -1,1 +1,3 @@
-- TODO: Merge Linux setup
+- TODO:
+  * Merge Linux setup
+  * More indepth tmux setup
