@@ -50,17 +50,15 @@ return {
 				dapui.close()
 			end
 
-			-- Function to parse .env file
+			-- Function to parse .env file (used for Python, kept for consistency)
 			local function load_env_file(path)
 				local env_vars = {}
 				local file = io.open(path, "r")
 				if file then
 					for line in file:lines() do
-						-- Skip comments and empty lines
 						if not line:match("^%s*#") and line:match("%S") then
 							local key, value = line:match("^%s*(%S+)%s*=%s*(.+)%s*$")
 							if key and value then
-								-- Remove quotes if present
 								value = value:gsub("^[\"'](.+)[\"']$", "%1")
 								env_vars[key] = value
 							end
@@ -71,14 +69,97 @@ return {
 				return env_vars
 			end
 
-			-- Setup Python adapter
+			-- Adapters
+			-- Node.js adapter (pwa-node)
+			dap.adapters["pwa-node"] = {
+				type = "server",
+				host = "localhost",
+				port = "${port}", -- DAP will find a free port
+				executable = {
+					command = "node",
+					-- Ensure this path is correct and the vscode-js-debug server is functional
+					args = { "/Users/christian.juresh/work/js-debug/src/dapDebugServer.js", "${port}" },
+				},
+			}
+
+			-- Chrome adapter for client-side debugging (pwa-chrome)
+			dap.adapters["pwa-chrome"] = {
+				type = "server",
+				host = "localhost",
+				port = "${port}", -- DAP will find a free port
+				executable = {
+					command = "node",
+					-- Uses the same vscode-js-debug server
+					args = { "/Users/christian.juresh/work/js-debug/src/dapDebugServer.js", "${port}" },
+				},
+			}
+
+			-- JavaScript and Next.js Configurations
+			dap.configurations.javascript = {
+				-- Your existing "Launch file" config
+				{
+					type = "pwa-node",
+					request = "launch",
+					name = "Launch current file (Node)",
+					program = "${file}",
+					cwd = "${workspaceFolder}",
+				},
+
+				-- Next.js: debug server-side
+				{
+					type = "pwa-node",
+					request = "launch",
+					name = "Next.js: debug server-side",
+					runtimeExecutable = "npm",
+					runtimeArgs = { "run", "dev" }, -- Executes `npm run dev`
+					cwd = "${workspaceFolder}",
+					console = "integratedTerminal",
+					autoAttachChildProcesses = true,
+				},
+
+				-- Next.js: debug client-side
+				{
+					type = "pwa-chrome",
+					request = "launch",
+					name = "Next.js: debug client-side",
+					-- IMPORTANT: `next dev` usually runs on http://localhost:3000.
+					-- Your VS Code config had 4000. Adjust if your `npm run dev`
+					-- is specifically configured for a different port (e.g., 4000).
+					url = "http://localhost:3000", -- ADJUST PORT IF NECESSARY
+					webRoot = "${workspaceFolder}",
+					sourceMaps = true,
+					userDataDir = true, -- Recommended for a clean debugging environment
+				},
+
+				-- Next.js: debug full stack
+				{
+					type = "pwa-node", -- Primary process is the Node.js server
+					request = "launch",
+					name = "Next.js: debug full stack",
+					runtimeExecutable = "npm",
+					runtimeArgs = { "run", "dev" },
+					cwd = "${workspaceFolder}",
+					console = "integratedTerminal",
+					autoAttachChildProcesses = true,
+					serverReadyAction = {
+						pattern = "started server on .+, url: (https?://.+)",
+						uriFormat = "%s",
+						action = "debugWithChrome", -- `vscode-js-debug` handles this
+					},
+				},
+			}
+
+			-- If you use TypeScript for your Next.js project, share the JavaScript configurations
+			dap.configurations.typescript = dap.configurations.javascript
+
+			-- Setup Python adapter (existing)
 			dap.adapters.debugpy = {
 				type = "executable",
 				command = "python",
 				args = { "-m", "debugpy.adapter" },
 			}
 
-			-- Python configuration with .env support
+			-- Python configuration with .env support (existing)
 			dap.configurations.python = {
 				{
 					type = "debugpy",
@@ -86,21 +167,22 @@ return {
 					name = "Launch file (with .env)",
 					program = "${file}",
 					pythonPath = function()
-						-- Try to find and use virtualenv python if available
 						local cwd = vim.fn.getcwd()
 						if vim.fn.executable(cwd .. "/venv/bin/python") == 1 then
 							return cwd .. "/venv/bin/python"
 						elseif vim.fn.executable(cwd .. "/.venv/bin/python") == 1 then
 							return cwd .. "/.venv/bin/python"
 						else
-							return "/usr/bin/python3"
+							return "/usr/bin/python3" -- Consider using a more robust way to find python3
 						end
 					end,
-					-- Load environment variables from .env file
 					env = function()
 						local cwd = vim.fn.getcwd()
 						local env_path = cwd .. "/.env"
 						local env_vars = load_env_file(env_path)
+						-- Print for debugging if needed:
+						-- print("Loaded .env variables for Python DAP:")
+						-- for k, v in pairs(env_vars) do print(k, v) end
 						return env_vars
 					end,
 				},
@@ -116,7 +198,7 @@ return {
 						elseif vim.fn.executable(cwd .. "/.venv/bin/python") == 1 then
 							return cwd .. "/.venv/bin/python"
 						else
-							return "/usr/bin/python3"
+							return "/usr/bin/python3" -- Fallback
 						end
 					end,
 				},
